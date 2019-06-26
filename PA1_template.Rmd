@@ -1,25 +1,136 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "PA1_template"
+author: "Owen Tolson"
+date: "June 26, 2019"
+output: html_document
 ---
 
+## 1. Code for reading in the dataset and/or processing the data
+```{r, echo = TRUE, results = "hide", warning = FALSE, message = FALSE}
+rm(list = ls())
+setwd("C:/Users/Owen.Tolson/Desktop/R Practice/Reproducible Research/Week 2")
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(stringr)
+library(magrittr)
 
-## Loading and preprocessing the data
+#Read in data and remove NAs
+data <- read.csv("activity.csv", stringsAsFactors = FALSE)
+data <- na.omit(data)
+
+#Change data variable from character to date
+data <- data %>% 
+     mutate(date = ymd(date))
+```
+
+## 2. Histogram of the total number of steps taken each day
+
+ 
+```{r, echo = TRUE, warning = FALSE, message = FALSE}
+q2 <- data %>% 
+     select(steps, date) %>% 
+     group_by(date) %>% 
+     summarise(totalsteps = sum(steps))
+
+q2 %>% 
+     ggplot(aes(totalsteps)) + 
+     geom_histogram() +
+     theme_minimal() +
+     scale_y_continuous(limits = c(0, 10), breaks = c(0,2,4,6,8,10)) +
+     labs(title = "Histogram of Total Step Each Day", x = "# of Steps", y = "Count")
+```
+
+## 3. Mean and median number of steps taken each day
+```{r, echo = TRUE}
+#Mean calculation
+mean(q2$totalsteps)
+#Median calculation
+median(q2$totalsteps)
+
+```
+
+## 4. Time series plot of the average number of steps taken
+```{r, echo = TRUE}
+q4 <- data %>% 
+     select(interval, steps) %>% 
+     group_by(interval) %>% 
+     summarise(meansteps = mean(steps))
+
+q4 %>% 
+     ggplot(aes(x = interval, y = meansteps)) +
+     geom_line() +
+     theme_classic() +
+     labs(title = "Time Series Plot", subtitle = "Interval vs. Total Steps", x = "Interval", y = "Avg # of Steps")
+```
 
 
-
-## What is mean total number of steps taken per day?
-
-
-
-## What is the average daily activity pattern?
-
+## 5. The 5-minute interval that, on average, contains the maximum number of steps
+```{r, echo = TRUE}
+q4[which.max(q4$meansteps), ]
+```
+## 6. Code to describe and show a strategy for imputing missing data
 
 
-## Imputing missing values
+### 6a. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with \color{red}{\verb|NA|}NAs)
+```{r, echo = TRUE}
+q6 <- read.csv("activity.csv", stringsAsFactors = FALSE)
+sum(is.na(q6))
 
+```
+### 6b. Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
 
+The replacement strategy will take the mean of each interval and replace the respective NA with that interval mean. The new dataset with the missing data filled in will be called "q6b"
 
-## Are there differences in activity patterns between weekdays and weekends?
+```{r, echo = TRUE}
+q6b <- q6 %>% 
+     group_by(interval) %>%
+     mutate(steps = replace(steps, is.na(steps), mean(steps, na.rm = TRUE)))
+```
+
+## 7. Histogram of the total number of steps taken each day after missing values are imputed
+
+Replacing NAs with the mean of each interval increases certain intervalstep counts. We also see the median and mean values are now identical when replacing the NAs with the mean value. 
+```{r, echo = TRUE, warning = FALSE, message = FALSE}
+q7 <- q6b %>% 
+     group_by(date) %>% 
+     summarise(totalsteps = sum(steps))
+
+q7 %>% 
+     ggplot(aes(totalsteps)) + 
+     geom_histogram() +
+     theme_minimal() +
+     scale_y_continuous(limits = c(0, 14), breaks = c(0,2,4,6,8,10,12,14)) +
+     labs(title = "Histogram of Total Step Each Day", x = "# of Steps", y = "Count")
+
+#Mean calculation
+mean(q7$totalsteps)
+#Median calculation
+median(q7$totalsteps)
+```
+## 8. Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+```{r, echo = TRUE}
+
+#Creating weekday and weekend factor
+workweek <- c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')
+
+data$daytype <- factor((weekdays(data$date) %in% workweek), 
+         levels = c(TRUE, FALSE), labels = c("Weekday", "Weekend"))
+
+data$dayofweek <- wday(data$date, label = TRUE)
+
+#Creating plot comparison
+q8 <- data %>% 
+     select(interval, steps, daytype) %>% 
+     group_by(interval, daytype) %>% 
+     summarise(meansteps = mean(steps))
+
+q8 %>% 
+     ggplot(aes(x = interval, y = meansteps, color = daytype)) +
+     geom_line() +
+     facet_wrap(.~daytype) +
+     theme_minimal() +
+     labs(title = "Time Series Plot", subtitle = "Weekdays vs Weekends", x = "Interval", y = "Avg # of Steps")
+
+```
+
